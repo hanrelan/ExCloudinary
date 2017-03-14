@@ -1,7 +1,6 @@
 defmodule ExCloudinary.Client do
   @moduledoc false
   use HTTPoison.Base
-  @after_compile __MODULE__
   @base_url ~S(https://api.cloudinary.com/v1_1)
   @signed_params ~w(callback eager eager_async format from_public_id public_id
     resource_type tags timestamp to_public_id text transformation type context allowed_formats proxy
@@ -9,19 +8,16 @@ defmodule ExCloudinary.Client do
     invalidate use_filename unique_filename folder overwrite discard_original_filename face_coordinates
     custom_coordinates raw_convert auto_tagging background_removal moderation upload_preset
     font_family font_size font_color font_weight font_style background opacity text_decoration)a
-  @cloud_name Application.get_env(:ex_cloudinary, :cloud_name)
-  @api_key Application.get_env(:ex_cloudinary, :api_key)
-  @api_secret Application.get_env(:ex_cloudinary, :api_secret, <<0>>)
 
   ## HTTPoison.Base extensions
 
   @doc false
-  def process_url(url), do: "#{@base_url}/#{@cloud_name}/#{url}"
+  def process_url(url), do: "#{@base_url}/#{cloud_name()}/#{url}"
 
   @doc false
   def process_request_body(body) do
     body
-    |> Keyword.merge([api_key: @api_key, timestamp: get_timestamp()])
+    |> Keyword.merge([api_key: api_key(), timestamp: get_timestamp()])
     |> sign_body()
     |> multipart_encode()
   end
@@ -53,7 +49,7 @@ defmodule ExCloudinary.Client do
     Enum.map_join(params, "&", fn {k, v} -> "#{k}=#{v}" end)
   end
 
-  defp append_secret(signature), do: signature <> @api_secret
+  defp append_secret(signature), do: signature <> api_secret()
 
   defp hash_signature(signature), do: :crypto.hash(:sha, signature)
 
@@ -65,21 +61,7 @@ defmodule ExCloudinary.Client do
     {:multipart, body}
   end
 
-  def __after_compile__(_env, _bytecode) do
-    if is_nil(@cloud_name), do: raise error_msg("cloud name")
-    if is_nil(@api_key), do: raise error_msg("api_key")
-    if @api_secret == <<0>>, do: raise error_msg("api_secret")
-  end
-
-  defp error_msg(missing) do
-    ~s"""
-    Missing config for `#{missing}`.
-
-    Ensure your `config.exs` is set according to the following:
-      config :ex_cloudinary,
-        cloud_name: "",
-        api_key: "",
-        api_secret: ""
-    """
-  end
+  defp cloud_name, do: Application.get_env(:ex_cloudinary, :cloud_name)
+  defp api_key, do: Application.get_env(:ex_cloudinary, :api_key)
+  defp api_secret, do: Application.get_env(:ex_cloudinary, :api_secret, <<0>>)
 end
